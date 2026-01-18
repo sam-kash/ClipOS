@@ -55,7 +55,7 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 ClipOS Server running on port ${PORT}`);
-    console.log(`📁 Uploads: ${uploadsDir}`);
-    console.log(`🎬 Processed: ${processedDir}`);
+    console.log(` ClipOS Server running on port ${PORT}`);
+    console.log(` Uploads: ${uploadsDir}`);
+    console.log(` Processed: ${processedDir}`);
 });
