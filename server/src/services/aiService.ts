@@ -1,31 +1,49 @@
 import OpenAI from 'openai';
 import fs from 'fs';
 
-// Initialize OpenAI client only if API key exists
-let openai: OpenAI | null = null;
+// Lazy initialization - only create client when first needed
+let groqClient: OpenAI | null = null;
+let initialized = false;
 
-if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== '' && process.env.OPENAI_API_KEY !== 'mock-key') {
-    openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-    });
-    console.log('✅ OpenAI client initialized');
-} else {
-    console.warn('⚠️  OPENAI_API_KEY not set. AI features will return mock data.');
+/**
+ * Get Groq client (OpenAI-compatible)
+ * Uses Groq's free API with OpenAI SDK
+ */
+function getGroqClient(): OpenAI | null {
+    if (!initialized) {
+        initialized = true;
+        const apiKey = process.env.GROQ_API_KEY;
+
+        if (apiKey && apiKey !== '' && apiKey !== 'mock-key') {
+            groqClient = new OpenAI({
+                apiKey: apiKey,
+                baseURL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
+            });
+            console.log('Groq client initialized with key:', apiKey.substring(0, 15) + '...');
+        } else {
+            console.warn('GROQ_API_KEY not found. AI features will return mock data.');
+        }
+    }
+    return groqClient;
 }
 
 /**
- * Generate a viral script using GPT-4
+ * Generate a viral script using Groq's Llama model
  */
 export const generateScript = async (topic: string, niche: string): Promise<string> => {
-    // Check if API key is configured
-    if (!openai) {
-        console.warn('⚠️  OpenAI client not initialized. Returning mock script.');
+    console.log('generateScript called for:', topic, niche);
+    const client = getGroqClient();
+    console.log('Groq client:', client ? 'READY' : 'NULL');
+
+    if (!client) {
+        console.warn('Groq client not initialized. Returning mock script.');
         return getMockScript(topic, niche);
     }
 
     try {
-        const completion = await openai.chat.completions.create({
-            model: 'gpt-4',
+        console.log('Calling Groq API...');
+        const completion = await client.chat.completions.create({
+            model: 'llama-3.3-70b-versatile', // Groq's best free model
             messages: [
                 {
                     role: 'system',
@@ -53,13 +71,14 @@ Rules:
             max_tokens: 1000,
         });
 
+        console.log('Groq response received!');
         return completion.choices[0]?.message?.content || getMockScript(topic, niche);
     } catch (error: any) {
-        console.error('OpenAI API Error:', error.message);
+        console.error('Groq API Error:', error.message);
+        console.error('Full error:', JSON.stringify(error, null, 2));
 
-        // Return mock on error but log the issue
         if (error.code === 'insufficient_quota') {
-            console.error('⚠️  OpenAI quota exceeded. Please add credits.');
+            console.error('Groq quota exceeded.');
         }
 
         return getMockScript(topic, niche);
@@ -67,39 +86,23 @@ Rules:
 };
 
 /**
- * Generate captions using Whisper API
+ * Generate captions - currently returns mock data
+ * Note: Groq doesn't support audio transcription like Whisper
+ * Consider using AssemblyAI or Deepgram for transcription
  */
 export const generateCaptions = async (audioPath: string): Promise<string> => {
-    if (!openai) {
-        console.warn('⚠️  OpenAI client not initialized. Returning mock captions.');
-        return getMockCaptions();
-    }
-
-    try {
-        // Check if file exists
-        if (!fs.existsSync(audioPath)) {
-            throw new Error(`Audio file not found: ${audioPath}`);
-        }
-
-        const transcription = await openai.audio.transcriptions.create({
-            file: fs.createReadStream(audioPath),
-            model: 'whisper-1',
-            response_format: 'srt', // Get SRT format directly
-            language: 'en',
-        });
-
-        return transcription as unknown as string;
-    } catch (error: any) {
-        console.error('Whisper API Error:', error.message);
-        return getMockCaptions();
-    }
+    console.warn('Audio transcription not supported by Groq. Returning mock captions.');
+    console.warn('Consider using AssemblyAI or Deepgram for audio transcription.');
+    return getMockCaptions();
 };
 
 /**
  * Generate hook ideas for a topic
  */
 export const generateHooks = async (topic: string, count: number = 5): Promise<string[]> => {
-    if (!openai) {
+    const client = getGroqClient();
+
+    if (!client) {
         return [
             `Did you know ${topic} could change everything?`,
             `Stop scrolling if you care about ${topic}`,
@@ -110,8 +113,8 @@ export const generateHooks = async (topic: string, count: number = 5): Promise<s
     }
 
     try {
-        const completion = await openai.chat.completions.create({
-            model: 'gpt-4',
+        const completion = await client.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
             messages: [
                 {
                     role: 'system',
@@ -136,7 +139,7 @@ export const generateHooks = async (topic: string, count: number = 5): Promise<s
 
 // Mock data for when API is not configured
 function getMockScript(topic: string, niche: string): string {
-    return `🎬 VIRAL SCRIPT: ${topic}
+    return `VIRAL SCRIPT: ${topic}
 
 [HOOK - 0:00-0:03]
 "Wait... you've been doing ${topic} wrong this whole time?"
@@ -160,10 +163,10 @@ Point 3: They track everything and adjust
 
 [CTA - 0:45-0:60]
 "Follow for Part 2 where I show you the exact system I use.
-Drop a 🔥 if this helped!"
+Drop a fire emoji if this helped!"
 
 ---
-⚠️ NOTE: This is a mock script. Add your OpenAI API key to .env for real AI generation.`;
+NOTE: This is a mock script. Add your GROQ_API_KEY to .env for real AI generation.`;
 }
 
 function getMockCaptions(): string {
@@ -188,5 +191,5 @@ They focus on consistency over perfection.
 They leverage systems, not willpower.
 
 ---
-⚠️ MOCK CAPTIONS: Add your OpenAI API key for real Whisper transcription.`;
+MOCK CAPTIONS: Audio transcription requires a separate service (AssemblyAI, Deepgram, etc.)`;
 }

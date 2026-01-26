@@ -1,6 +1,9 @@
+// Load environment variables FIRST before any other imports
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 
 import connectDB from './config/db.js';
 
@@ -9,10 +12,9 @@ import uploadRoutes from './routes/uploadRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
 import projectRoutes from './routes/projectRoutes.js';
 import videoRoutes from './routes/videoRoutes.js';
+import skyreelsRoutes from './routes/skyreelsRoutes.js';
 import path from 'path';
 import fs from 'fs';
-
-dotenv.config();
 
 connectDB();
 
@@ -34,6 +36,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/video', videoRoutes);
+app.use('/api/skyreels', skyreelsRoutes);
 
 // Serve static files
 const __dirname = path.resolve();
@@ -50,6 +53,7 @@ app.get('/', (req, res) => {
             video: '/api/video',
             ai: '/api/ai',
             upload: '/api/upload',
+            skyreels: '/api/skyreels',
         },
     });
 });
